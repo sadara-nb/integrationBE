@@ -17,7 +17,10 @@ export default function EditProfilePage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarPreview(URL.createObjectURL(file));
+
+    setAvatarPreview(URL.createObjectURL(file)); //se toma la imagen seleccionada por el ususario 
+    //se muestra una vista previa de la imagen seleccionada utilizando URL.createObjectURL, que crea una URL temporal para el archivo seleccionado, permitiendo que se muestre en la interfaz antes de subirla al servidor.
+    setSaved(false); //se resetea el estado de guardado para permitir guardar los cambios después de seleccionar una nueva imagen
 
     // TODO: Upload the avatar with UploadThing and save the returned URL.
     // Example:
@@ -26,24 +29,59 @@ export default function EditProfilePage() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault(); //evita que el formulario recargue la página al enviarlo -> manejar el proceso de guardado de manera asíncrona 
+    setLoading(true); //indica que el proceso de guardado está en curso
+
+    setSaved(false); //resetea el estado de guardado para evitar mostrar un mensaje de éxito si el usuario intenta guardar nuevamente sin hacer cambios
+
 
     // TODO: Replace the URL below with your real backend endpoint.
     // Also pass `avatarUrl` from UploadThing once you integrate file uploads.
     // Example: fetch("https://your-api.com/profile", { method: "POST", ... })
-    await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, bio, website }),
-    });
+    
+    let avatar = avatarPreview; //se revisa si hay una imagen guardada
+    const file = fileRef.current?.files?.[0]; //se obtiene el archivo seleccionado por el usuario a través de la referencia al input de archivo
 
+    if (file) {
+      const formData = new FormData(); //creamos un objeto formadata porque los archivos se mandan como datos de formulario multipart/form-data
+      // formadata es un formato para enviar archivos a través de HTTP que permite construir fácilmente el cuerpo de la solicitud.
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/upload", { //hacemos fetch a un endpoint de carga de archivos en nuestro backend, que se encargará de recibir el archivo, procesarlo y devolver una URL donde se puede acceder a la imagen cargada.
+        method: "POST",
+        body: formData, 
+      });
+
+    if (!uploadRes.ok) {
+      setLoading(false);
+      return;
+    }
+
+    const uploadData = await uploadRes.json(); //se espera la respuesta del servidor, que se asume que devuelve un JSON con la URL de la imagen cargada
+    avatar = uploadData.url; //se toma la url de la imagen de subida y se guarda en avatar
+  }
+
+  const profileRes = await fetch(`/api/profile/${CURRENT_USER.username}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ //después de tener la URL de la imagen cargada (si se seleccionó una nueva), se envía una solicitud PATCH a un endpoint de perfil en el backend paara actualizar la info del perfil del usuario
+      name,
+      bio,
+      website,
+      avatar,
+    }),
+  });
+
+  if (profileRes.ok) { //marcamos como guardado toda la información 
     setSaved(true);
-    setLoading(false);
-    setTimeout(() => {
-      router.push(`/profile/${CURRENT_USER.username}`);
-      router.refresh();
-    }, 800);
+    setLoading(false); //dejamos de mostrar el estado de carga
+    router.push("/profile"); //redirigimos al perfil
+    return;
+  }
+  
+  setLoading(false);
   }
 
   return (
@@ -117,3 +155,4 @@ export default function EditProfilePage() {
     </div>
   );
 }
+

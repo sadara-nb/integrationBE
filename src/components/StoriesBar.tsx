@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 
 // Stories bar — purely visual mock. Students can wire it to a real stories API.
 // TODO (students): Fetch real stories from your backend endpoint (e.g. GET /api/stories)
@@ -13,9 +14,23 @@ const MOCK_STORIES = [
 ];
 
 export default function StoriesBar() {
+  const [stories, setStories] = useState(MOCK_STORIES);
+
+   useEffect(() => {
+    const fetchStories = async () => {
+      const response = await fetch("/api/stories");
+      const data = await response.json();
+      console.log(data); // verifica la respuesta en consola
+      if (data.stories) {
+        setStories(data.stories); // se reemplazan los mocks con los datos reales del backend
+      }
+    };
+    fetchStories();
+  }, []);
+  
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide bg-white border border-gray-200 rounded-xl px-4 py-3">
-      {MOCK_STORIES.map(({ username, seed, isOwn }) => (
+      {stories.map(({ username, seed, isOwn }) => (
         <button key={username} className="flex flex-col items-center gap-1 flex-shrink-0">
           <div
             className={`w-14 h-14 rounded-full p-0.5 ${

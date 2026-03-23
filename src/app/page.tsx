@@ -2,16 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { Post } from "@/lib/types";
+import { User } from "@/lib/types";
 import PostCard from "@/components/PostCard";
 import StoriesBar from "@/components/StoriesBar";
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<User[]>([]);
 
   useEffect(() => {
     // TODO: Change the URL below to your real backend endpoint.
     // Example: fetch("https://your-api.com/posts") d
+    const fetchPosts = async () => {
+      const responde = await fetch("http://localhost:3000/api/posts")
+      const data = await responde.json();
+      console.log(data); //verifica la respuesta en consola
+      setPosts(data);
+      setLoading(false);
+    }
+
+    const fetchSuggestions = async () => {
+      const responde = await fetch("http://localhost:3000/api/suggestions")
+      const data = await responde.json();
+      console.log(data); //verifica la respuesta en consola
+      setSuggestions(data);
+      setLoading(false);
+    }
+
+    fetchPosts();
+    fetchSuggestions();
   }, []);
 
   if (loading) return <div className="flex justify-center py-20 text-gray-400">Loading feed…</div>;
@@ -41,13 +61,13 @@ export default function FeedPage() {
           </div>
           <p className="text-xs font-semibold text-gray-400 mb-3">Suggested for you</p>
           {/* TODO: Fetch suggestions from your backend — fetch("/api/suggestions") */}
-          {["alex.photo", "maya.art", "javier.cooks", "sofia.travels", "kai.fitness"].map((u) => (
-            <div key={u} className="flex items-center gap-3 mb-3">
+          {suggestions.map((user) => ( //mapeamos las sugerencias del backend, se ahce el recorrido de la key de cada usuario que es su id
+            <div key={user.id} className="flex items-center gap-3 mb-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`https://api.dicebear.com/8.x/notionists/svg?seed=${u}`} alt={u} className="w-8 h-8 rounded-full object-cover" />
+              <img src={`https://api.dicebear.com/8.x/notionists/svg?seed=${user.avatar}`} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold truncate">{u}</p>
-                <p className="text-xs text-gray-400">Suggested</p>
+                <p className="text-xs font-semibold truncate">{user.username}</p>
+                <p className="text-xs text-gray-400">{user.bio}</p>
               </div>
               <button className="text-xs font-semibold text-blue-500 hover:text-blue-700">Follow</button>
             </div>

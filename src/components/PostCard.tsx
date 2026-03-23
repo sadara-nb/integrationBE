@@ -12,6 +12,9 @@ interface Props {
 export default function PostCard({ post: initial }: Props) {
   const [post, setPost] = useState(initial);
   const [showAllComments, setShowAllComments] = useState(false);
+  const [commentText, setCommentText] = useState(""); //texto del comentario que el usuario está escribiendo
+  const [sendingComment, setSendingComment] = useState(false); //para deshabilitar el botón mientras se envía
+//agregadas constantes para que funcionen los comentarios
 
   async function handleLike() {
     // Optimistic update
@@ -23,6 +26,7 @@ export default function PostCard({ post: initial }: Props) {
 
     // TODO: Change the URL below to your real backend endpoint.
     // Example: fetch(`https://your-api.com/posts/${post.id}/like`, { method: "POST" })
+    await fetch(`/api/posts/${post.id}/like`, { method: "POST" });
   }
 
   async function handleSave() {
@@ -32,6 +36,33 @@ export default function PostCard({ post: initial }: Props) {
     // TODO: Change the URL below to your real backend endpoint.
     // Example: fetch(`https://your-api.com/posts/${post.id}/save`, { method: "POST" })
     await fetch(`/api/posts/${post.id}/save`, { method: "POST" });
+  }
+
+  async function handleComment(e: React.FormEvent) {
+  e.preventDefault(); //evita que la página se recargue al enviar el formulario
+  if (!commentText.trim() || sendingComment) return; //no enviamos si el texto está vacío o ya se está enviando
+
+  setSendingComment(true);
+
+  const response = await fetch(`/api/posts/${post.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: commentText }),
+    });
+ 
+    const data = await response.json();
+ 
+    if (data.comment) {
+      // se agrega el nuevo comentario a la lista y actualizamos el contador
+      setPost((p) => ({
+        ...p,
+        comments: [...p.comments, data.comment],
+        commentsCount: p.commentsCount + 1,
+      }));
+    }
+ 
+    setCommentText(""); //se limpia el input después de enviar el comentario
+    setSendingComment(false);
   }
 
   return (
@@ -145,11 +176,17 @@ export default function PostCard({ post: initial }: Props) {
               }); */}
         <input
           type="text"
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
           placeholder="Add a comment…"
           className="flex-1 text-sm outline-none bg-transparent"
         />
-        <button className="text-sm font-semibold text-blue-500 opacity-40" disabled>
-          Post
+        <button
+          type="submit"
+          disabled={!commentText.trim() || sendingComment}
+          className="text-sm font-semibold text-blue-500 disabled:opacity-40"
+        >
+          {sendingComment ? "…" : "Post"}
         </button>
       </div>
     </article>

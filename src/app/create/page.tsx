@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { uploadFiles } from "@/lib/uploadthing";
 
 type Tab = "post" | "reel";
 
@@ -11,16 +12,20 @@ export default function CreatePage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
+  const [uploadedUrl, setUploadedUrl] = useState(""); //guardamos la url devuelta por uploadthing / url real del arhicvo subido
   const [audioTrack, setAudioTrack] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // el preview es solo la url temporal para ver el archivo en la pantalla
     // Show a local preview so the user can see what they picked
-    setPreview(URL.createObjectURL(file));
+    setError(null);
+    setPreview(URL.createObjectURL(file)); //muestra la vista previa del archivo
+    setUploadedUrl(""); //limpiamos la url anterior 
 
     // TODO: Upload the file to UploadThing here and save the returned URL.
     // 1. Install: npm install uploadthing @uploadthing/react
@@ -28,11 +33,19 @@ export default function CreatePage() {
     // 3. Upload and save the URL:
     //      const [result] = await uploadFiles("imageUploader", { files: [file] });
     //      setUploadedUrl(result.url);
+
+    const [result] = await uploadFiles("mediaUploader", {files: [file]
+    }); //upload and save the url a uploadthing, el primer parametro es el nombre del router que creamos en /src/app/api/uploadthing/core.ts y el segundo es un objeto con la propiedad files que es un array de los archivos a subir
+    setUploadedUrl(result.url); //guardamos la url que se va a mandar al backend
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!preview) { setError("Please select a file."); return; }
+
+    if (!uploadedUrl) { 
+      setError("Please select a file."); 
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -42,24 +55,36 @@ export default function CreatePage() {
         // TODO: Replace `preview` with the real URL returned by UploadThing after upload.
         // TODO: Change the URL below to your real backend endpoint.
         // Example: fetch("https://your-api.com/posts", { method: "POST", ... })
-        await fetch("/api/posts", {
+        const response = await fetch("/api/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: preview, caption, location }),
+          body: JSON.stringify({ imageUrl: uploadedUrl, caption, location }), //cambiamos el preview por la url que retorna uploadthing despues de subir la imagen
         });
+
+        if (!response.ok) {
+          setError("Could not create the post.");
+          setLoading(false);
+          return;
+        }
+
       } else {
         // TODO: Replace `preview` with the real URL returned by UploadThing after upload.
         // TODO: Change the URL below to your real backend endpoint.
         // Example: fetch("https://your-api.com/reels", { method: "POST", ... })
-        await fetch("/api/reels", {
+        const response = await fetch("/api/reels", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: preview, thumbnailUrl: preview, caption, audioTrack }),
+          body: JSON.stringify({ videoUrl: uploadedUrl, thumbnailUrl: uploadedUrl, caption, audioTrack }),
         });
+        if (!response.ok) {
+          setError("Could not create the reel.");
+          setLoading(false);
+          return;
+        }
       }
-
-      router.push("/");
-      router.refresh();
+      setLoading(false);
+      router.push("/"); //volvemos al homepage despues de crear el post o reel
+      router.refresh(); //refrescamos la pagina para que el nuevo post o reel aparezca en el feed
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -92,12 +117,12 @@ export default function CreatePage() {
           onClick={() => fileRef.current?.click()}
           className="border-2 border-dashed border-gray-300 rounded-xl aspect-square flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden"
         >
-          {preview ? (
+          {uploadedUrl ? (
             tab === "post" ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="preview" className="w-full h-full object-cover" />
+              <img src={uploadedUrl} alt="uploadedUrl" className="w-full h-full object-cover" />
             ) : (
-              <video src={preview} className="w-full h-full object-cover" muted loop autoPlay playsInline />
+              <video src={uploadedUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
             )
           ) : (
             <div className="flex flex-col items-center gap-3 text-gray-400 p-8 text-center">
@@ -163,7 +188,7 @@ export default function CreatePage() {
 
         <button
           type="submit"
-          disabled={loading || !caption.trim() || !preview}
+          disabled={loading || !caption.trim() || !uploadedUrl}
           className="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors disabled:opacity-40"
         >
           {loading ? "Sharing…" : `Share ${tab}`}
