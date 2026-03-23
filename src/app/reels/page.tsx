@@ -13,7 +13,7 @@ export default function ReelsPage() {
     // TODO: Change the URL below to your real backend endpoint.
     // Example: fetch("https://your-api.com/reels")
     const fetchReels = async () => {
-      const responde = await fetch("http://localhost:3000/api/reels")
+      const responde = await fetch("/api/reels")
       const data = await responde.json(); //verifica la respuesta en consola
       console.log(data); //verifica la respuesta en consola
       setReels(data);
